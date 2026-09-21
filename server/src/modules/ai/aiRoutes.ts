@@ -72,7 +72,7 @@ async function recordSuggestion(teamId: string, type: string, taskId: string | n
       confidence,
       reasoning,
       prompt_used: prompt,
-      model_version: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
+      model_version: process.env.GEMINI_MODEL ?? 'gemini-3.6-flash',
     })
     .returning('*');
   return row;

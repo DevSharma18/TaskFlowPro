@@ -69,7 +69,7 @@ Gap-based integers: new card at max+1000; insert between at midpoint; when gap <
 
 ## 6. AI Service (Gemini)
 
-- `geminiService.call(templateKey, context, schema)` — model `gemini-2.0-flash`, `responseMimeType: application/json`, `responseSchema` enforced, temperature 0.2, 10s timeout, 3 retries w/ backoff, 5-min cache keyed on hash(template+context).
+- `geminiService.call(templateKey, context, schema)` — model `gemini-3.6-flash`, `responseMimeType: application/json`, `responseSchema` enforced, temperature 0.2, 10s timeout, 3 retries w/ backoff, 5-min cache keyed on hash(template+context).
 - Prompt templates in `modules/ai/prompts/` — each embeds task list (id/title/status/dates) + current edges; instructions forbid inventing IDs.
 - Response validation layer: IDs must exist in DB, suggested edges re-run cycle check before being offered as acceptable, dedupe against existing edges, confidence clamped 0–1.
 - Every call logs prompt+response to `ai_suggestions` (or dedicated `ai_logs`).

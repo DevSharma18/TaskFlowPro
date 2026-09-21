@@ -21,7 +21,7 @@ export const env = {
   jwtRefreshSecret: required('JWT_REFRESH_SECRET', 'dev-only-insecure-refresh-32chars!'),
   clientOrigin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
   geminiApiKey: process.env.GEMINI_API_KEY ?? '',
-  geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
+  geminiModel: process.env.GEMINI_MODEL ?? 'gemini-3.6-flash',
   jwtAccessTtl: '15m',
   jwtRefreshTtlDays: 7,
   bcryptRounds: 12,
