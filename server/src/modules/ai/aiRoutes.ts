@@ -36,7 +36,17 @@ aiRouter.use(
 
 const uuid = Joi.string().uuid();
 
-const TASK_SELECT = 'id, title, description, status, start_date, end_date, duration_days, story_points, priority';
+const TASK_SELECT = [
+  'id',
+  'title',
+  'description',
+  'status',
+  'start_date',
+  'end_date',
+  'duration_days',
+  'story_points',
+  'priority',
+];
 
 async function buildContext(teamId: string): Promise<{ tasks: TaskContext[]; deps: DepContext[] }> {
   const tasks = (await db('tasks').select(TASK_SELECT).where({ team_id: teamId })) as TaskContext[];
