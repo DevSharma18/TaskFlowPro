@@ -1,14 +1,108 @@
+# ==========================================
+# Dependencies
+# ==========================================
 node_modules/
+.pnp/
+.pnp.js
+
+# ==========================================
+# Production & Build Outputs
+# ==========================================
 dist/
 build/
-coverage/
-.env
-.env.local
-*.log
-logs/
-.DS_Store
+out/
 .vite/
-tokensave.db*
+*.tsbuildinfo
+.cache/
+.parcel-cache/
+.turbo/
 
-# Spartan AI config (contains API keys)
-.spartan/ai.env
+# ==========================================
+# Environment & Local Secrets
+# ==========================================
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+# ==========================================
+# Testing & Code Coverage
+# ==========================================
+coverage/
+.nyc_output/
+*.lcov
+
+# ==========================================
+# Logs & Runtime
+# ==========================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==========================================
+# Local Database & Cache
+# ==========================================
+tokensave.db*
+.tokensave/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# ==========================================
+# Local AI, Agent Skills & Workflow Tooling
+# ==========================================
+.agents/
+.claude/
+.spartan/
+skills-lock.json
+.planning/
+.handoff/
+.memory/
+
+# ==========================================
+# Non-Production Documents & Scratchpads
+# ==========================================
+*.xlsx
+*.xls
+*.csv
+todo.md
+memory.md
+
+# ==========================================
+# IDE & Editor Specific Files
+# ==========================================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.sublime-project
+*.sublime-workspace
+
+# ==========================================
+# Operating System & Temporary Files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+*.tmp
+*.temp
