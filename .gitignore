@@ -9,3 +9,6 @@ logs/
 .DS_Store
 .vite/
 tokensave.db*
+
+# Spartan AI config (contains API keys)
+.spartan/ai.env

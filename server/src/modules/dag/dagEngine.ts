@@ -244,16 +244,39 @@ export class DagEngine {
 
   /**
    * Critical path: longest chain by duration_days via toposort + DP.
-   * Returns ordered task ids and total duration.
+   * Returns ordered task ids and total duration. Scoped to teamId when provided.
    */
-  async criticalPath(db: Knex): Promise<{ path: string[]; totalDays: number }> {
+  async criticalPath(db: Knex, teamId?: string): Promise<{ path: string[]; totalDays: number }> {
     if (this.graph.nodeCount() === 0) return { path: [], totalDays: 0 };
-    const tasks = (await db('tasks').select('id', 'duration_days')) as { id: string; duration_days: number | null }[];
+
+    let taskQuery = db('tasks').select('id', 'duration_days');
+    if (teamId) {
+      taskQuery = taskQuery.where({ team_id: teamId });
+    }
+    const tasks = (await taskQuery) as { id: string; duration_days: number | null }[];
+    if (tasks.length === 0) return { path: [], totalDays: 0 };
+
+    const teamTaskIds = new Set(tasks.map((t) => t.id));
     const duration = new Map(tasks.map((t) => [t.id, t.duration_days ?? 1]));
+
+    let targetGraph = this.graph;
+    if (teamId) {
+      targetGraph = new Graph({ directed: true });
+      for (const id of teamTaskIds) {
+        targetGraph.setNode(id);
+      }
+      for (const id of teamTaskIds) {
+        for (const pred of this.predecessors(id)) {
+          if (teamTaskIds.has(pred)) {
+            targetGraph.setEdge(pred, id);
+          }
+        }
+      }
+    }
 
     let ordered: string[];
     try {
-      ordered = alg.topsort(this.graph);
+      ordered = alg.topsort(targetGraph);
     } catch {
       return { path: [], totalDays: 0 };
     }
@@ -263,7 +286,8 @@ export class DagEngine {
     for (const id of ordered) {
       let best = 0;
       let bestPred: string | null = null;
-      for (const p of this.predecessors(id)) {
+      const preds = teamId ? (targetGraph.predecessors(id) ?? []) : this.predecessors(id);
+      for (const p of preds) {
         const d = dist.get(p) ?? 0;
         if (d > best) {
           best = d;

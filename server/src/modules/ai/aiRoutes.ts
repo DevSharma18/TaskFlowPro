@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
 import Joi from 'joi';
 import { db } from '../../db';
 import { asyncHandler } from '../../lib/asyncHandler';
@@ -15,21 +14,21 @@ import {
   validateText,
   validateConfidence,
   validateStoryPoints,
-  validatePriority,
 } from './validators';
 import { dagEngine } from '../dag/dagEngine';
-import { emitToUser } from '../../realtime/socket';
+import { invalidateDagCache } from '../dag/dagRoutes';
+import { emitToUser, emitToTeam } from '../../realtime/socket';
+import { createRateLimiter } from '../../middlewares/rateLimiter';
 
 export const aiRouter = Router();
 aiRouter.use(requireAuth);
 
-// AI endpoints: stricter limit (10/min) — Gemini calls are expensive
+// AI endpoints: stricter limit (10/min per user) — Gemini calls are expensive
 aiRouter.use(
-  rateLimit({
+  createRateLimiter({
     windowMs: 60_000,
     limit: 10,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
+    keyGenerator: (req) => req.user?.userId ?? req.ip ?? 'anonymous',
     message: { success: false, error: { code: 'RATE_LIMITED', message: 'AI rate limit reached (10/min). Try again shortly.' } },
   })
 );
@@ -50,9 +49,12 @@ const TASK_SELECT = [
 
 async function buildContext(teamId: string): Promise<{ tasks: TaskContext[]; deps: DepContext[] }> {
   const tasks = (await db('tasks').select(TASK_SELECT).where({ team_id: teamId })) as TaskContext[];
-  const ids = new Set(tasks.map((t) => t.id));
-  const allDeps = (await db('task_dependencies').select('predecessor_id', 'successor_id')) as DepContext[];
-  const deps = allDeps.filter((d) => ids.has(d.predecessor_id) && ids.has(d.successor_id));
+  const ids = tasks.map((t) => t.id);
+  if (ids.length === 0) return { tasks: [], deps: [] };
+  const deps = (await db('task_dependencies')
+    .select('predecessor_id', 'successor_id')
+    .whereIn('predecessor_id', ids)
+    .whereIn('successor_id', ids)) as DepContext[];
   return { tasks, deps };
 }
 
@@ -72,7 +74,7 @@ async function recordSuggestion(teamId: string, type: string, taskId: string | n
       confidence,
       reasoning,
       prompt_used: prompt,
-      model_version: process.env.GEMINI_MODEL ?? 'gemini-3.6-flash',
+      model_version: process.env.GEMINI_MODEL ?? 'gemini-3.1-flash-lite',
     })
     .returning('*');
   return row;
@@ -317,6 +319,18 @@ aiRouter.patch(
 
       await trx('ai_suggestions').where({ id: suggestion.id }).update({ status: req.body.decision });
     });
+
+    if (req.body.decision === 'accepted' && applied) {
+      if (suggestion.suggestion_type === 'dependency') {
+        emitToTeam(teamId, 'dependency:added', { dependency: applied });
+      } else if (suggestion.suggestion_type === 'decompose') {
+        emitToTeam(teamId, 'task:created', { tasks: applied });
+      } else if (suggestion.suggestion_type === 'estimate' || suggestion.suggestion_type === 'describe') {
+        emitToTeam(teamId, 'task:updated', { task: applied });
+      }
+      await invalidateDagCache(teamId);
+    }
+    emitToTeam(teamId, 'ai:suggestion-ready', { type: suggestion.suggestion_type, count: 0 });
 
     await writeAudit(db, { userId: req.user!.userId, entityType: 'ai_suggestion', entityId: suggestion.id, action: req.body.decision, newValue: applied, correlationId: req.correlationId });
     res.json({ success: true, data: { suggestion: { ...suggestion, status: req.body.decision }, applied } });

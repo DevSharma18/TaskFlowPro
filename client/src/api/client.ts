@@ -9,9 +9,18 @@ export const api = axios.create({
 });
 
 let accessToken: string | null = null;
+let refreshPromise: Promise<string | null> | null = null;
+
+type TokenListener = (token: string | null) => void;
+let onTokenUpdate: TokenListener | null = null;
+
+export const setOnTokenUpdate = (listener: TokenListener | null) => {
+  onTokenUpdate = listener;
+};
 
 export const setAccessToken = (token: string | null) => {
   accessToken = token;
+  onTokenUpdate?.(token);
 };
 
 export const getAccessToken = () => accessToken;
@@ -30,12 +39,26 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry && originalRequest.url !== '/auth/login' && originalRequest.url !== '/auth/refresh') {
       originalRequest._retry = true;
       try {
-        const res = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
-        if (res.data.success && res.data.data.accessToken) {
-          setAccessToken(res.data.data.accessToken);
-          originalRequest.headers.Authorization = `Bearer ${res.data.data.accessToken}`;
+        if (!refreshPromise) {
+          refreshPromise = axios
+            .post('/api/auth/refresh', {}, { withCredentials: true })
+            .then((res) => {
+              if (res.data.success && res.data.data.accessToken) {
+                setAccessToken(res.data.data.accessToken);
+                return res.data.data.accessToken as string;
+              }
+              return null;
+            })
+            .finally(() => {
+              refreshPromise = null;
+            });
+        }
+        const newToken = await refreshPromise;
+        if (newToken) {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return api(originalRequest);
         }
+        throw new Error('Refresh token invalid');
       } catch (refreshErr) {
         setAccessToken(null);
         window.dispatchEvent(new Event('auth:expired'));

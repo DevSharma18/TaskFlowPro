@@ -15,7 +15,7 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   const token = header?.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return next(new AuthError());
   try {
-    const payload = jwt.verify(token, env.jwtSecret) as JwtPayload;
+    const payload = jwt.verify(token, env.jwtSecret, { algorithms: ['HS256'] }) as JwtPayload;
     req.user = payload;
     next();
   } catch {

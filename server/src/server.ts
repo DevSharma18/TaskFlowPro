@@ -3,13 +3,18 @@ import { createApp } from './app';
 import { env } from './config/env';
 import { logger } from './lib/logger';
 import { db } from './db';
+import { connectMongo, disconnectMongo } from './db/mongo';
 import { initSocket } from './realtime/socket';
 import { dagEngine } from './modules/dag/dagEngine';
 
 async function main() {
-  // Fail fast if DB unreachable
+  // Fail fast if PostgreSQL unreachable
   await db.raw('SELECT 1');
   logger.info('database connected');
+
+  // Connect MongoDB for user sessions (fail-fast to prevent zombie state)
+  await connectMongo();
+  logger.info('mongodb connected');
 
   await dagEngine.hydrate(db);
   logger.info('dag engine hydrated');
@@ -26,6 +31,7 @@ async function main() {
     logger.info(`${signal} received, shutting down gracefully`);
     server.close(async () => {
       try {
+        await disconnectMongo();
         await db.destroy();
       } finally {
         process.exit(0);

@@ -1,7 +1,11 @@
 services:
+  # ==========================================
+  # Database Server Tier (Isolated Network)
+  # ==========================================
   postgres:
     image: postgres:15-alpine
-    container_name: taskflow-db
+    container_name: taskflow-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: taskflow
       POSTGRES_PASSWORD: taskflow
@@ -10,11 +14,83 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - db_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U taskflow -d taskflow_pro"]
       interval: 5s
       timeout: 3s
       retries: 10
 
+  mongodb:
+    image: mongo:7-jammy
+    container_name: taskflow-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    networks:
+      - db_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ==========================================
+  # Backend Server Tier
+  # ==========================================
+  backend:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: taskflow-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://taskflow:taskflow@postgres:5432/taskflow_pro
+      MONGODB_URI: mongodb://mongodb:27017/taskflow_pro
+      CACHE_DRIVER: memory
+      RATE_LIMIT_STORE: memory
+      JWT_SECRET: super-secret-jwt-key-min-32-chars-long-taskflow!
+      JWT_REFRESH_SECRET: super-secret-refresh-key-min-32-chars-long-taskflow!
+      CLIENT_ORIGIN: "http://localhost:5173,http://localhost"
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - db_network
+      - proxy_network
+
+  # ==========================================
+  # Reverse Proxy Tier
+  # ==========================================
+  reverse-proxy:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: taskflow-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - proxy_network
+
+networks:
+  db_network:
+    driver: bridge
+  proxy_network:
+    driver: bridge
+
 volumes:
   pgdata:
+  mongodata:

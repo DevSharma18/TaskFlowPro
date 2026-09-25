@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "skills": {
+    "design-taste-frontend": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/taste-skill/SKILL.md",
+      "computedHash": "899b84384f74f540ea5284d9b2e9234e050998b42eacc805410b518d4226c0b3"
+    },
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/grill-me/SKILL.md",
+      "computedHash": "5e0c683385eafd83f106ac6c9d67dfbbfe5aa4b3fe65aad114eb1055a99c818f"
+    },
+    "planetscale-autonomous-execution-mode": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-autonomous-execution-mode/SKILL.md",
+      "computedHash": "aa433ed891228da9b03ef66329bbce81503d285a67a88c3625493f3a145497f3"
+    },
+    "planetscale-best-practices-matrix": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-best-practices-matrix/SKILL.md",
+      "computedHash": "64c2a5cbaf94d04d16435883116b8cdc54338f4919968fd01daf5cd4ab947df9"
+    },
+    "planetscale-change-gates-and-approval-contract": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-change-gates-and-approval-contract/SKILL.md",
+      "computedHash": "f239c3f6c1080118165d0e585ed2c08edc414ac69bd54d1819853badc5b0bb79"
+    },
+    "planetscale-codebase-sqlcommenter-instrumentation": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-codebase-sqlcommenter-instrumentation/SKILL.md",
+      "computedHash": "92aceea4932d2dc4beeb108b386b5b77b3a40d24208e5174b922ca5a938703d1"
+    },
+    "planetscale-customer-report-template": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-customer-report-template/SKILL.md",
+      "computedHash": "3e6f032b0546a676fd2ba106b52148a74c5103b9e0325a0dc4a45be2b28ae5f3"
+    },
+    "planetscale-mcp-agent-operating-model": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-mcp-agent-operating-model/SKILL.md",
+      "computedHash": "cc4d7046b1ecade702b10ee474b69f407743854c48c4cdb2bf48a9db8f645f2b"
+    },
+    "planetscale-postgres-safety-review": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-postgres-safety-review/SKILL.md",
+      "computedHash": "836afcaa2029e9175db4aafe4adcd9fd289e28b4953e9d3568ca849288d67250"
+    },
+    "planetscale-pscale-cli-automation": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-pscale-cli-automation/SKILL.md",
+      "computedHash": "aa8c21dca20a7f3f059a4a93a9ba46e7b9eb66d6414d308226e7c1349d1bb335"
+    },
+    "planetscale-query-insights-and-tags": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-query-insights-and-tags/SKILL.md",
+      "computedHash": "6ba2f5c43290d3dc51944c2c745cbbd368a469a242045b98ba71a940e3036935"
+    },
+    "planetscale-readonly-inventory": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-readonly-inventory/SKILL.md",
+      "computedHash": "0bea2381b88f8202a77cefe82c53816273686c148338eff83f867de6d8b7eacd"
+    },
+    "planetscale-safe-orchestrator": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-safe-orchestrator/SKILL.md",
+      "computedHash": "c01436f5503e8325e0c80c86511d69ccaff0ae05c5b3bd17a82f3d0dc4cb6846"
+    },
+    "planetscale-schema-recommendations-agent-loop": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-schema-recommendations-agent-loop/SKILL.md",
+      "computedHash": "b3b0bc31d89e6e0bca5dca39329db202539288ebf50c30c84227180113d3f32f"
+    },
+    "planetscale-traffic-control-recommendations": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-traffic-control-recommendations/SKILL.md",
+      "computedHash": "43a9a65ae7a173cb73505d39278962ba37e023349faef0e694c8d349da5397d3"
+    },
+    "planetscale-vitess-safety-review": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-vitess-safety-review/SKILL.md",
+      "computedHash": "d716885ece3bc369e7d61d1b5f46348192868c5b13bb9ae288220090bf5c6b9d"
+    },
+    "planetscale-webhook-automation-recommendations": {
+      "source": "planetscale/skills",
+      "sourceType": "github",
+      "skillPath": "planetscale-webhook-automation-recommendations/SKILL.md",
+      "computedHash": "7c6596df1c368c901aa38ab6f3c85317120344ba8e56b2e582e451abc0b4fe6e"
+    },
+    "security-audit": {
+      "source": "cloudflare/security-audit-skill",
+      "sourceType": "github",
+      "skillPath": "skills/security-audit/SKILL.md",
+      "computedHash": "e6b2e317de75da97e9de18d842982994803f3a67a4a6d8154a82323dc3de8528"
+    },
+    "webapp-testing": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/webapp-testing/SKILL.md",
+      "computedHash": "3f14af7f5690695209c22fbf8c8d133769a86d64892602c09bb13f135e14e857"
+    }
+  }
+}

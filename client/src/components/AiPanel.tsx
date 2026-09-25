@@ -96,31 +96,31 @@ export const AiPanel: React.FC<AiPanelProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-slate-950/95 border-l border-surface-border backdrop-blur-xl shadow-2xl flex flex-col text-slate-100">
+    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-white/95 dark:bg-slate-950/95 border-l border-slate-200/90 dark:border-surface-border backdrop-blur-xl shadow-2xl flex flex-col text-slate-900 dark:text-slate-100 transition-colors">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-surface-border">
+      <div className="flex items-center justify-between p-4 border-b border-slate-200/80 dark:border-surface-border">
         <div className="flex items-center space-x-2.5">
-          <div className="w-7 h-7 bg-brand-accent/20 border border-brand-accent/40 text-brand-accent flex items-center justify-center">
+          <div className="w-7 h-7 bg-brand-primary/15 dark:bg-brand-accent/20 border border-brand-primary/30 dark:border-brand-accent/40 text-brand-primary dark:text-brand-accent flex items-center justify-center rounded-sm">
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold">Gemini AI Workspace Suite</h2>
-            <p className="text-[10px] text-slate-400">Human-in-the-loop Grounded Intelligence</p>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Gemini AI Workspace Suite</h2>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">Human-in-the-loop Grounded Intelligence</p>
           </div>
         </div>
-        <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-100">
+        <button onClick={onClose} className="p-1 rounded-sm text-slate-400 hover:text-slate-700 dark:hover:text-slate-100 transition-colors">
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-surface-border bg-slate-900/50">
+      <div className="flex border-b border-slate-200/80 dark:border-surface-border bg-slate-50 dark:bg-slate-900/50">
         <button
           onClick={() => setActiveTab('suggestions')}
           className={`flex-1 py-2.5 text-xs font-medium border-b-2 transition-colors ${
             activeTab === 'suggestions'
-              ? 'border-brand-accent text-slate-100'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-brand-primary dark:border-brand-accent text-slate-900 dark:text-slate-100 font-semibold'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
           Pending Suggestions ({suggestions.length})
@@ -129,8 +129,8 @@ export const AiPanel: React.FC<AiPanelProps> = ({ onClose }) => {
           onClick={() => setActiveTab('actions')}
           className={`flex-1 py-2.5 text-xs font-medium border-b-2 transition-colors ${
             activeTab === 'actions'
-              ? 'border-brand-accent text-slate-100'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-brand-primary dark:border-brand-accent text-slate-900 dark:text-slate-100 font-semibold'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
           Workflows & Analysis
@@ -139,8 +139,8 @@ export const AiPanel: React.FC<AiPanelProps> = ({ onClose }) => {
           onClick={() => setActiveTab('search')}
           className={`flex-1 py-2.5 text-xs font-medium border-b-2 transition-colors ${
             activeTab === 'search'
-              ? 'border-brand-accent text-slate-100'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-brand-primary dark:border-brand-accent text-slate-900 dark:text-slate-100 font-semibold'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
           Semantic Search
@@ -152,10 +152,10 @@ export const AiPanel: React.FC<AiPanelProps> = ({ onClose }) => {
         {activeTab === 'suggestions' && (
           <div className="space-y-3">
             {suggestions.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-xs border border-dashed border-surface-border">
-                <Bot className="w-6 h-6 mx-auto mb-2 opacity-40" />
+              <div className="p-8 text-center text-slate-400 dark:text-slate-500 text-xs border border-dashed border-slate-300 dark:border-surface-border rounded-sm">
+                <Bot className="w-6 h-6 mx-auto mb-2 opacity-40 text-slate-500" />
                 <p>No pending suggestions.</p>
-                <p className="text-[10px] mt-1 text-slate-600">
+                <p className="text-[10px] mt-1 text-slate-400 dark:text-slate-600">
                   Click &quot;AI Suggest Prerequisites&quot; inside any task card to trigger.
                 </p>
               </div>
@@ -165,25 +165,25 @@ export const AiPanel: React.FC<AiPanelProps> = ({ onClose }) => {
                 const isLowConfidence = s.confidence < 0.6;
 
                 return (
-                  <div key={s.id} className="p-3.5 bg-surface-50 border border-surface-border space-y-2.5">
+                  <div key={s.id} className="p-3 bg-slate-50 dark:bg-surface-50 border border-slate-200 dark:border-surface-border rounded-sm space-y-2.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 bg-brand-primary/20 text-brand-primary border border-brand-primary/30 uppercase">
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 bg-brand-primary/10 dark:bg-brand-primary/20 text-brand-primary border border-brand-primary/30 uppercase rounded-sm">
                           {s.suggestion_type}
                         </span>
-                        <span className={`text-[10px] font-mono ${isLowConfidence ? 'text-amber-400' : 'text-emerald-400'}`}>
+                        <span className={`text-[10px] font-mono ${isLowConfidence ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                           {Math.round(s.confidence * 100)}% confidence
                         </span>
                       </div>
-                      <span className="text-[10px] text-slate-500">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
                         {new Date(s.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
 
-                    <div className="text-xs text-slate-200">
+                    <div className="text-xs text-slate-800 dark:text-slate-200">
                       {s.suggestion_type === 'dependency' && (
                         <p>
-                          Suggest linking <span className="font-mono text-brand-accent">TF-{data.predecessor_id?.slice(0, 4)}</span> as prerequisite to <span className="font-mono text-brand-accent">TF-{data.successor_id?.slice(0, 4)}</span>
+                          Suggest linking <span className="font-mono text-brand-primary dark:text-brand-accent">TF-{data.predecessor_id?.slice(0, 4)}</span> as prerequisite to <span className="font-mono text-brand-primary dark:text-brand-accent">TF-{data.successor_id?.slice(0, 4)}</span>
                         </p>
                       )}
                       {s.reasoning && (
@@ -243,7 +243,7 @@ export const AiPanel: React.FC<AiPanelProps> = ({ onClose }) => {
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-200 flex items-center space-x-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                  <span>DAG Schedule Risk Analysis</span>
+                  <span>Schedule Risk Analysis</span>
                 </span>
                 <button
                   onClick={handleAnalyzeRisk}

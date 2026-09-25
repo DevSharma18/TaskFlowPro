@@ -8,6 +8,7 @@ import { NotFoundError, ValidationError } from '../../lib/errors';
 import { writeAudit } from '../../lib/audit';
 import { nextPosition, betweenPosition, rebalanceColumn } from '../../lib/position';
 import { dagEngine, TaskStatus } from '../dag/dagEngine';
+import { invalidateDagCache } from '../dag/dagRoutes';
 import { emitToTeam, emitToUser } from '../../realtime/socket';
 
 export const taskRouter = Router();
@@ -52,8 +53,11 @@ taskRouter.get(
     }),
   }),
   asyncHandler(async (req, res) => {
-    const teamId = (req.query.team_id as string) ?? req.user!.teamId;
+    const teamId = req.user!.teamId;
     if (!teamId) throw new ValidationError('No team context; create or join a team first');
+    if (req.query.team_id && req.query.team_id !== teamId) {
+      throw new NotFoundError('Team');
+    }
     const query = db('tasks').where({ team_id: teamId });
     if (req.query.status) query.andWhere({ status: req.query.status });
     if (req.query.assignee_id) query.andWhere({ assignee_id: req.query.assignee_id });
@@ -80,7 +84,52 @@ taskRouter.post(
     await dagEngine.recomputeStatuses(db, [task.id]);
     await writeAudit(db, { userId: req.user!.userId, entityType: 'task', entityId: task.id, action: 'create', newValue: task, correlationId: req.correlationId });
     emitToTeam(teamId, 'task:created', { task });
+    await invalidateDagCache(teamId);
     res.status(201).json({ success: true, data: task });
+  })
+);
+
+taskRouter.patch(
+  '/bulk-position',
+  validate({
+    body: Joi.object({
+      moves: Joi.array()
+        .items(Joi.object({ id: uuid.required(), status: Joi.string().valid(...STATUSES).required(), position: Joi.number().integer().min(0).required() }))
+        .min(1)
+        .max(500)
+        .required(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const teamId = req.user!.teamId;
+    const ids = req.body.moves.map((m: { id: string }) => m.id);
+    const tasks = await db('tasks').whereIn('id', ids);
+    if (tasks.some((t) => t.team_id !== teamId)) {
+      throw new ValidationError('All tasks in bulk position must belong to your team');
+    }
+    const oldById = new Map(tasks.map((t) => [t.id, t]));
+    const statusChanged: string[] = [];
+
+    await db.transaction(async (trx) => {
+      for (const m of req.body.moves as { id: string; status: TaskStatus; position: number }[]) {
+        const old = oldById.get(m.id);
+        if (!old) throw new NotFoundError(`Task ${m.id}`);
+        if (m.status === 'done' && old.dependency_status === 'blocked') {
+          throw new ValidationError(`Cannot move blocked task "${old.title}" to Done`);
+        }
+        await trx('tasks').where({ id: m.id }).update({ status: m.status, position: m.position, updated_at: new Date() });
+        if (old.status !== m.status) statusChanged.push(m.id);
+      }
+      for (const id of statusChanged) {
+        await dagEngine.recomputeStatuses(db, dagEngine.downstream(id), trx);
+      }
+    });
+
+    if (teamId) {
+      emitToTeam(teamId, 'task:reordered', { ids, statusChanged });
+      await invalidateDagCache(teamId);
+    }
+    res.json({ success: true });
   })
 );
 
@@ -90,6 +139,7 @@ taskRouter.get(
   asyncHandler(async (req, res) => {
     const task = await db('tasks').where({ id: req.params.id }).first();
     if (!task) throw new NotFoundError('Task');
+    if (task.team_id !== req.user!.teamId) throw new NotFoundError('Task');
     const deps = await db('task_dependencies as d')
       .join('tasks as p', 'p.id', 'd.predecessor_id')
       .where('d.successor_id', task.id)
@@ -108,6 +158,7 @@ taskRouter.put(
   asyncHandler(async (req, res) => {
     const old = await db('tasks').where({ id: req.params.id }).first();
     if (!old) throw new NotFoundError('Task');
+    if (old.team_id !== req.user!.teamId) throw new NotFoundError('Task');
     assertDatesValid(req.body.start_date ?? old.start_date, req.body.end_date ?? old.end_date);
 
     const [task] = await db('tasks')
@@ -128,6 +179,7 @@ taskRouter.put(
     await writeAudit(db, { userId: req.user!.userId, entityType: 'task', entityId: task.id, action: 'update', oldValue: old, newValue: task, correlationId: req.correlationId });
     emitToTeam(old.team_id, 'task:updated', { task });
     if (propagated.length) emitToTeam(old.team_id, 'schedule:propagated', { sourceId: task.id, changes: propagated });
+    await invalidateDagCache(old.team_id);
     res.json({ success: true, data: { task, propagated } });
   })
 );
@@ -138,12 +190,14 @@ taskRouter.delete(
   asyncHandler(async (req, res) => {
     const old = await db('tasks').where({ id: req.params.id }).first();
     if (!old) throw new NotFoundError('Task');
+    if (old.team_id !== req.user!.teamId) throw new NotFoundError('Task');
     const affected = dagEngine.downstream(req.params.id);
     await db('tasks').where({ id: req.params.id }).del(); // cascade removes edges
     dagEngine.removeNode(req.params.id);
     await dagEngine.recomputeStatuses(db, affected);
     await writeAudit(db, { userId: req.user!.userId, entityType: 'task', entityId: old.id, action: 'delete', oldValue: old, correlationId: req.correlationId });
     emitToTeam(old.team_id, 'task:deleted', { taskId: old.id, affected });
+    await invalidateDagCache(old.team_id);
     res.json({ success: true });
   })
 );
@@ -157,6 +211,7 @@ taskRouter.patch(
   asyncHandler(async (req, res) => {
     const old = await db('tasks').where({ id: req.params.id }).first();
     if (!old) throw new NotFoundError('Task');
+    if (old.team_id !== req.user!.teamId) throw new NotFoundError('Task');
     const newStatus = req.body.status as TaskStatus;
 
     // Blocked tasks cannot be moved to done
@@ -185,6 +240,7 @@ taskRouter.patch(
 
     await writeAudit(db, { userId: req.user!.userId, entityType: 'task', entityId: old.id, action: isRegression ? 'regress' : 'advance', oldValue: { status: old.status }, newValue: { status: newStatus }, correlationId: req.correlationId });
     emitToTeam(old.team_id, 'task:moved', { task, regression: isRegression, statusChanges: changes });
+    await invalidateDagCache(old.team_id);
     res.json({ success: true, data: { task, regression: isRegression, statusChanges: changes } });
   })
 );
@@ -197,55 +253,26 @@ taskRouter.patch(
   }),
   asyncHandler(async (req, res) => {
     const task = await db('tasks').where({ id: req.params.id }).first();
-    if (!task) throw new NotFoundError('Task');
-    const before = req.body.after_id ? ((await db('tasks').where({ id: req.body.after_id }).first())?.position ?? null) : null;
-    const after = req.body.before_id ? ((await db('tasks').where({ id: req.body.before_id }).first())?.position ?? null) : null;
+    if (!task || task.team_id !== req.user!.teamId) throw new NotFoundError('Task');
+
+    let before = req.body.before_id
+      ? ((await db('tasks').where({ id: req.body.before_id, team_id: task.team_id }).first())?.position ?? null)
+      : null;
+    let after = req.body.after_id
+      ? ((await db('tasks').where({ id: req.body.after_id, team_id: task.team_id }).first())?.position ?? null)
+      : null;
+
     let position = betweenPosition(before as number | null, after as number | null);
     if (before !== null && after !== null && after - before < 2) {
       await rebalanceColumn(db, task.team_id, task.status);
-      position = await nextPosition(db, task.team_id, task.status);
+      const rebalancedBefore = (await db('tasks').where({ id: req.body.before_id, team_id: task.team_id }).first())?.position ?? null;
+      const rebalancedAfter = (await db('tasks').where({ id: req.body.after_id, team_id: task.team_id }).first())?.position ?? null;
+      position = betweenPosition(rebalancedBefore, rebalancedAfter);
     }
     const [updated] = await db('tasks').where({ id: task.id }).update({ position, updated_at: new Date() }).returning('*');
     emitToTeam(task.team_id, 'task:reordered', { task: updated });
+    await invalidateDagCache(task.team_id);
     res.json({ success: true, data: updated });
-  })
-);
-
-taskRouter.patch(
-  '/bulk-position',
-  validate({
-    body: Joi.object({
-      moves: Joi.array()
-        .items(Joi.object({ id: uuid.required(), status: Joi.string().valid(...STATUSES).required(), position: Joi.number().integer().min(0).required() }))
-        .min(1)
-        .max(500)
-        .required(),
-    }),
-  }),
-  asyncHandler(async (req, res) => {
-    const ids = req.body.moves.map((m: { id: string }) => m.id);
-    const tasks = await db('tasks').whereIn('id', ids);
-    const oldById = new Map(tasks.map((t) => [t.id, t]));
-    const statusChanged: string[] = [];
-
-    await db.transaction(async (trx) => {
-      for (const m of req.body.moves as { id: string; status: TaskStatus; position: number }[]) {
-        const old = oldById.get(m.id);
-        if (!old) throw new NotFoundError(`Task ${m.id}`);
-        if (m.status === 'done' && old.dependency_status === 'blocked') {
-          throw new ValidationError(`Cannot move blocked task "${old.title}" to Done`);
-        }
-        await trx('tasks').where({ id: m.id }).update({ status: m.status, position: m.position, updated_at: new Date() });
-        if (old.status !== m.status) statusChanged.push(m.id);
-      }
-      for (const id of statusChanged) {
-        await dagEngine.recomputeStatuses(db, dagEngine.downstream(id), trx);
-      }
-    });
-
-    const teamId = tasks[0]?.team_id;
-    if (teamId) emitToTeam(teamId, 'task:reordered', { ids, statusChanged });
-    res.json({ success: true });
   })
 );
 
@@ -254,8 +281,14 @@ taskRouter.get(
   '/:id/upstream',
   validate({ params: Joi.object({ id: uuid.required() }) }),
   asyncHandler(async (req, res) => {
+    const teamId = req.user!.teamId;
+    const root = await db('tasks').where({ id: req.params.id, team_id: teamId }).first();
+    if (!root) throw new NotFoundError('Task');
     const ids = dagEngine.upstream(req.params.id);
-    const tasks = await db('tasks').select('id', 'title', 'status', 'start_date', 'end_date').whereIn('id', ids);
+    const tasks = await db('tasks')
+      .select('id', 'title', 'status', 'start_date', 'end_date')
+      .whereIn('id', ids)
+      .andWhere({ team_id: teamId });
     res.json({ success: true, data: tasks });
   })
 );
@@ -264,8 +297,14 @@ taskRouter.get(
   '/:id/downstream',
   validate({ params: Joi.object({ id: uuid.required() }) }),
   asyncHandler(async (req, res) => {
+    const teamId = req.user!.teamId;
+    const root = await db('tasks').where({ id: req.params.id, team_id: teamId }).first();
+    if (!root) throw new NotFoundError('Task');
     const ids = dagEngine.downstream(req.params.id);
-    const tasks = await db('tasks').select('id', 'title', 'status', 'start_date', 'end_date').whereIn('id', ids);
+    const tasks = await db('tasks')
+      .select('id', 'title', 'status', 'start_date', 'end_date')
+      .whereIn('id', ids)
+      .andWhere({ team_id: teamId });
     res.json({ success: true, data: tasks });
   })
 );

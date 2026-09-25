@@ -1,9 +1,10 @@
+import path from 'path';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
-import rateLimit from 'express-rate-limit';
+import { createRateLimiter } from './middlewares/rateLimiter';
 import { env } from './config/env';
 import { requestContext } from './middlewares/requestContext';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
@@ -30,11 +31,9 @@ export function createApp(): express.Express {
   app.use(cookieParser());
   app.use(requestContext);
   app.use(
-    rateLimit({
+    createRateLimiter({
       windowMs: 60_000,
       limit: 100,
-      standardHeaders: 'draft-7',
-      legacyHeaders: false,
     })
   );
 
@@ -48,6 +47,18 @@ export function createApp(): express.Express {
   app.use('/api/dependencies', dependencyRouter);
   app.use('/api/dag', dagRouter);
   app.use('/api/ai', aiRouter);
+
+  // Serve client static files in production when available
+  const clientDist = path.resolve(__dirname, '../../client/dist');
+  app.use(express.static(clientDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDist, 'index.html'), (err) => {
+      if (err) next();
+    });
+  });
 
   app.use(notFoundHandler);
   app.use(errorHandler);

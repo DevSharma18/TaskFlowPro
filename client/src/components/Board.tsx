@@ -18,11 +18,10 @@ import { Task, TaskStatus } from '../types';
 import { Column } from './Column';
 import { TaskCard } from './TaskCard';
 import { TaskModal } from './TaskModal';
-import { DagVisualizer } from './DagVisualizer';
 import { AiPanel } from './AiPanel';
 import { useBoardStore } from '../store';
 import toast from 'react-hot-toast';
-import { Layers, Sparkles, Plus, Search, Filter } from 'lucide-react';
+import { Sparkles, Plus, Search } from 'lucide-react';
 
 const COLUMNS: { id: TaskStatus; title: string }[] = [
   { id: 'backlog', title: 'Backlog' },
@@ -34,9 +33,7 @@ const COLUMNS: { id: TaskStatus; title: string }[] = [
 export const Board: React.FC = () => {
   const queryClient = useQueryClient();
   const {
-    isDagViewOpen,
     isAiPanelOpen,
-    toggleDagView,
     toggleAiPanel,
     selectedTaskId,
     setSelectedTaskId,
@@ -67,7 +64,7 @@ export const Board: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['dag'] });
       if (data?.data?.regression) {
-        toast('Task regression: Downstream tasks re-evaluated and blocked', { icon: '⚠️' });
+        toast('Task regression: Downstream tasks re-evaluated and blocked');
       }
     },
     onError: (err: any) => {
@@ -156,6 +153,37 @@ export const Board: React.FC = () => {
       return;
     }
 
+    if (destinationStatus === activeCurrent.status) {
+      if (over.data.current?.type === 'Task' && over.id !== activeId) {
+        const columnTasks = tasks
+          .filter((t) => t.status === destinationStatus)
+          .sort((a, b) => a.position - b.position);
+
+        const oldIndex = columnTasks.findIndex((t) => t.id === activeId);
+        const newIndex = columnTasks.findIndex((t) => t.id === over.id);
+
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          const reordered = arrayMove(columnTasks, oldIndex, newIndex);
+          const currentIndex = reordered.findIndex((t) => t.id === activeId);
+          const beforeTask = currentIndex > 0 ? reordered[currentIndex - 1] : null;
+          const afterTask = currentIndex < reordered.length - 1 ? reordered[currentIndex + 1] : null;
+
+          api
+            .patch(`/tasks/${activeId}/position`, {
+              before_id: beforeTask ? beforeTask.id : null,
+              after_id: afterTask ? afterTask.id : null,
+            })
+            .then(() => {
+              queryClient.invalidateQueries({ queryKey: ['tasks'] });
+            })
+            .catch(() => {
+              queryClient.invalidateQueries({ queryKey: ['tasks'] });
+            });
+        }
+      }
+      return;
+    }
+
     moveTaskMutation.mutate({ id: activeId, status: destinationStatus });
   };
 
@@ -181,9 +209,9 @@ export const Board: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-65px)] overflow-hidden">
+    <div className="flex-1 flex flex-col h-[calc(100vh-56px)] overflow-hidden">
       {/* Board Sub-header / Actions */}
-      <div className="flex flex-wrap items-center justify-between p-4 border-b border-surface-border bg-slate-950/40 gap-3">
+      <div className="flex flex-wrap items-center justify-between px-5 py-3 border-b border-slate-200/80 dark:border-surface-border bg-white/50 dark:bg-slate-950/40 backdrop-blur-sm gap-3">
         <div className="flex items-center space-x-3">
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
@@ -192,23 +220,19 @@ export const Board: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search tasks..."
-              className="glass-input pl-8 pr-3 py-1.5 text-xs text-slate-100 w-48 md:w-64"
+              className="glass-input pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 rounded-sm w-48 md:w-64"
             />
           </div>
         </div>
 
-        <div className="flex items-center space-x-2.5">
-          <button
-            onClick={toggleDagView}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-surface-100 hover:bg-surface-200 border border-surface-border text-xs text-slate-200 transition-colors"
-          >
-            <Layers className="w-3.5 h-3.5 text-brand-accent" />
-            <span>DAG Topology</span>
-          </button>
-
+        <div className="flex items-center space-x-2">
           <button
             onClick={toggleAiPanel}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-brand-primary/20 hover:bg-brand-primary/30 border border-brand-primary/40 text-xs text-brand-primary font-medium transition-colors"
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-sm border text-xs font-medium transition-all ${
+              isAiPanelOpen
+                ? 'bg-brand-primary/25 border-brand-primary text-brand-primary shadow-sm'
+                : 'bg-brand-primary/10 hover:bg-brand-primary/20 border-brand-primary/30 text-brand-primary'
+            }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>AI Copilot</span>
@@ -216,7 +240,7 @@ export const Board: React.FC = () => {
 
           <button
             onClick={() => handleOpenNewModal('backlog')}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-brand-primary hover:bg-brand-primary/90 text-white text-xs font-medium shadow-sm transition-colors"
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-sm bg-brand-primary hover:bg-brand-primary/90 text-white text-xs font-medium shadow-sm hover:shadow transition-all"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Task</span>
@@ -260,16 +284,6 @@ export const Board: React.FC = () => {
           taskId={selectedTaskId}
           initialStatus={modalStatus}
           onClose={() => setIsModalOpen(false)}
-        />
-      )}
-
-      {isDagViewOpen && (
-        <DagVisualizer
-          onClose={toggleDagView}
-          onSelectTask={(t) => {
-            toggleDagView();
-            handleOpenEditModal(t);
-          }}
         />
       )}
 

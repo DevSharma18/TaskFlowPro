@@ -27,9 +27,16 @@ function createFakeDb(tasks: FakeTask[]) {
     const q: Record<string, unknown> = {};
     q.select = (..._cols: unknown[]) => q;
     q.where = (arg: unknown) => {
-      if (typeof arg === 'object' && arg !== null && 'id' in (arg as object)) {
-        const t = store.get((arg as { id: string }).id);
-        return makeQuery(t ? [t] : []);
+      if (typeof arg === 'object' && arg !== null) {
+        if ('id' in (arg as object)) {
+          const t = store.get((arg as { id: string }).id);
+          return makeQuery(t ? [t] : []);
+        }
+        if ('team_id' in (arg as object)) {
+          const tid = (arg as { team_id: string }).team_id;
+          const filtered = [...store.values()].filter((t) => t.team_id === tid);
+          return makeQuery(filtered);
+        }
       }
       return q;
     };
@@ -102,7 +109,10 @@ describe('cycle detection', () => {
   it('accepts valid edge in diamond', () => {
     const engine = buildEngine([['a', 'b'], ['a', 'c']], ['a', 'b', 'c', 'd']);
     expect(() => engine.assertEdgeValid('b', 'd')).not.toThrow();
+    engine.commitEdge('b', 'd');
     expect(() => engine.assertEdgeValid('c', 'd')).not.toThrow();
+    engine.commitEdge('c', 'd');
+    expect(engine.edges().length).toBe(4);
   });
 });
 
@@ -118,6 +128,23 @@ describe('dependency status', () => {
   it('ready when all predecessors done', () => {
     const engine = new DagEngine();
     expect(engine.computeDependencyStatus(['done', 'done'])).toBe('ready');
+  });
+  it('regression recomputes downstream to blocked', async () => {
+    const tasks: FakeTask[] = [
+      { id: 'a', status: 'done', start_date: null, end_date: null, duration_days: null, dependency_status: 'none', team_id: 't' },
+      { id: 'b', status: 'done', start_date: null, end_date: null, duration_days: null, dependency_status: 'ready', team_id: 't' },
+      { id: 'c', status: 'backlog', start_date: null, end_date: null, duration_days: null, dependency_status: 'ready', team_id: 't' },
+    ];
+    const { db, store } = createFakeDb(tasks);
+    const engine = buildEngine([['a', 'b'], ['b', 'c']], ['a', 'b', 'c']);
+
+    // Regress B from done to in_progress
+    store.get('b')!.status = 'in_progress';
+    const downstreamOfB = engine.downstream('b');
+    const changes = await engine.recomputeStatuses(db, downstreamOfB);
+
+    expect(changes).toEqual([{ id: 'c', dependency_status: 'blocked' }]);
+    expect(store.get('c')!.dependency_status).toBe('blocked');
   });
 });
 
@@ -213,12 +240,44 @@ describe('critical path', () => {
     expect(totalDays).toBe(15);
   });
 
+  it('finds longest chain scoped by team', async () => {
+    const tasks: FakeTask[] = [
+      { id: 't1_a', status: 'done', start_date: null, end_date: null, duration_days: 2, dependency_status: 'none', team_id: 'team_1' },
+      { id: 't1_b', status: 'backlog', start_date: null, end_date: null, duration_days: 5, dependency_status: 'ready', team_id: 'team_1' },
+      { id: 't2_x', status: 'done', start_date: null, end_date: null, duration_days: 20, dependency_status: 'none', team_id: 'team_2' },
+    ];
+    const { db } = createFakeDb(tasks);
+    const engine = buildEngine([['t1_a', 't1_b']], ['t1_a', 't1_b', 't2_x']);
+    const { path, totalDays } = await engine.criticalPath(db, 'team_1');
+    expect(path).toEqual(['t1_a', 't1_b']);
+    expect(totalDays).toBe(7);
+  });
+
   it('empty graph returns empty path', async () => {
     const { db } = createFakeDb([]);
     const engine = new DagEngine();
     const { path, totalDays } = await engine.criticalPath(db);
     expect(path).toEqual([]);
     expect(totalDays).toBe(0);
+  });
+});
+
+describe('edge removal', () => {
+  it('removing an edge recalculates downstream to ready when remaining predecessors done', async () => {
+    const tasks: FakeTask[] = [
+      { id: 'a', status: 'done', start_date: null, end_date: null, duration_days: null, dependency_status: 'none', team_id: 't' },
+      { id: 'b', status: 'in_progress', start_date: null, end_date: null, duration_days: null, dependency_status: 'none', team_id: 't' },
+      { id: 'c', status: 'backlog', start_date: null, end_date: null, duration_days: null, dependency_status: 'blocked', team_id: 't' },
+    ];
+    const { db, store } = createFakeDb(tasks);
+    const engine = buildEngine([['a', 'c'], ['b', 'c']], ['a', 'b', 'c']);
+
+    // Remove edge b -> c
+    engine.removeEdge('b', 'c');
+    const changes = await engine.recomputeStatuses(db, ['c']);
+
+    expect(changes).toEqual([{ id: 'c', dependency_status: 'ready' }]);
+    expect(store.get('c')!.dependency_status).toBe('ready');
   });
 });
 

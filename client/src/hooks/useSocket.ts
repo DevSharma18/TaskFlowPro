@@ -1,16 +1,22 @@
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
-import { getAccessToken } from '../api/client';
+import { useAuthStore } from '../store';
 import toast from 'react-hot-toast';
 
 export const useSocket = () => {
   const socketRef = useRef<Socket | null>(null);
   const queryClient = useQueryClient();
+  const token = useAuthStore((state) => state.token);
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) return;
+    if (!token) {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      return;
+    }
 
     const socket = io('/', {
       auth: { token },
@@ -68,7 +74,6 @@ export const useSocket = () => {
       const count = data?.changes?.length || 0;
       if (count > 0) {
         toast('Propagated schedule to ' + count + ' downstream task(s) without compounding', {
-          icon: '⚡',
           duration: 4000,
         });
       }
@@ -76,15 +81,13 @@ export const useSocket = () => {
 
     socket.on('ai:suggestion-ready', (data) => {
       queryClient.invalidateQueries({ queryKey: ['ai-suggestions'] });
-      toast('New AI suggestion ready (' + (data?.count || 1) + ')', {
-        icon: '✦',
-      });
+      toast('New AI suggestion ready (' + (data?.count || 1) + ')');
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [queryClient]);
+  }, [token, queryClient]);
 
   return socketRef.current;
 };
