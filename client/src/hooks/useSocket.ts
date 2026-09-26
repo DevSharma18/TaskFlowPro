@@ -49,7 +49,7 @@ export const useSocket = () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['dag'] });
       if (data?.regression) {
-        toast.error('Task regression detected — downstream dependencies re-evaluated and blocked', { duration: 4000 });
+        toast.error('Task regression detected: downstream dependencies re-evaluated and blocked', { duration: 4000 });
       }
     });
 

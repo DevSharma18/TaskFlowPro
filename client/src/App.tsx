@@ -1,41 +1,33 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuthStore, useBoardStore } from './store';
 import { Board } from './components/Board';
 import { AuthModal } from './components/AuthModal';
+import { LegalModal, LegalTab } from './components/LegalModal';
 import { useSocket } from './hooks/useSocket';
 import { Toaster, toast } from 'react-hot-toast';
 import { Shield, LogOut, Sun, Moon } from 'lucide-react';
-import { api } from './api/client';
+import { api, refreshSession } from './api/client';
 
 export const App: React.FC = () => {
   const { user, isAuthenticated, isLoading, setUser, login, logout } = useAuthStore();
   const { theme, toggleTheme } = useBoardStore();
+  const [legalModal, setLegalModal] = useState<LegalTab | null>(null);
 
-  // Try auto-refreshing session on first load
+  // Auto-refresh session on first load
   React.useEffect(() => {
-    let mounted = true;
     const initAuth = async () => {
       try {
-        const res = await api.post('/auth/refresh');
-        if (res.data.success && res.data.data.accessToken && mounted) {
-          const token = res.data.data.accessToken;
-          const meRes = await api.get('/auth/me', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (meRes.data.success && mounted) {
-            login(meRes.data.data, token);
-            return;
-          }
+        const result = await refreshSession();
+        if (result?.accessToken && result?.user) {
+          login(result.user, result.accessToken);
+        } else {
+          setUser(null);
         }
-        if (mounted) setUser(null);
       } catch {
-        if (mounted) setUser(null);
+        setUser(null);
       }
     };
     initAuth();
-    return () => {
-      mounted = false;
-    };
   }, [login, setUser]);
 
   // Handle auth:expired event from Axios interceptor
@@ -60,7 +52,7 @@ export const App: React.FC = () => {
     logout();
   };
 
-  if (isLoading) {
+  if (isLoading && !user) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-background flex items-center justify-center font-sans text-slate-800 dark:text-slate-100">
         <div className="flex items-center space-x-3">
@@ -107,6 +99,24 @@ export const App: React.FC = () => {
             </div>
 
             <div className="flex items-center space-x-3">
+              <div className="hidden sm:flex items-center space-x-2 text-[11px] text-slate-500 dark:text-slate-400 border-r border-slate-200/80 dark:border-surface-border pr-3">
+                <button
+                  type="button"
+                  onClick={() => setLegalModal('privacy')}
+                  className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+                >
+                  Privacy
+                </button>
+                <span>/</span>
+                <button
+                  type="button"
+                  onClick={() => setLegalModal('terms')}
+                  className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+                >
+                  Terms
+                </button>
+              </div>
+
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
@@ -141,6 +151,13 @@ export const App: React.FC = () => {
             <Board />
           </main>
         </>
+      )}
+
+      {legalModal && (
+        <LegalModal
+          initialTab={legalModal}
+          onClose={() => setLegalModal(null)}
+        />
       )}
     </div>
   );

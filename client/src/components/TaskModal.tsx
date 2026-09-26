@@ -224,8 +224,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({ taskId, initialStatus = 'b
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="glass-panel w-full max-w-2xl border border-slate-200/90 dark:border-surface-border p-6 my-8 text-slate-900 dark:text-slate-100 relative rounded-sm shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm p-4 overflow-y-auto animate-fade-in">
+      <div className="glass-panel w-full max-w-2xl border border-slate-200/90 dark:border-surface-border p-6 my-8 text-slate-900 dark:text-slate-100 relative rounded-sm shadow-2xl animate-modal-enter">
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/80 dark:border-surface-border mb-5">
           <div className="flex items-center space-x-2">

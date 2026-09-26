@@ -4,6 +4,8 @@ import { env } from '../config/env';
 export interface CollectionLike<T = unknown> {
   insertOne(doc: T): Promise<{ insertedId?: unknown }>;
   find(query: Record<string, unknown>): { toArray(): Promise<T[]> };
+  findOne?(query: Record<string, unknown>): Promise<T | null>;
+  updateOne(filter: Record<string, unknown>, update: Record<string, unknown>): Promise<{ matchedCount?: number; modifiedCount?: number }>;
   deleteOne(query: Record<string, unknown>): Promise<{ deletedCount?: number }>;
   deleteMany(query: Record<string, unknown>): Promise<{ deletedCount?: number }>;
   createIndex(spec: Record<string, unknown>, options?: Record<string, unknown>): Promise<string>;
@@ -31,6 +33,8 @@ export interface SessionDoc {
   userAgent?: string;
   createdAt: Date;
   expiresAt: Date;
+  replacedBy?: string;
+  rotatedAt?: Date;
 }
 
 export async function connectMongo(customUri?: string): Promise<DbLike> {

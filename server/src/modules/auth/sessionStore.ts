@@ -35,6 +35,20 @@ export class SessionStore {
       .toArray();
   }
 
+  async getSession(sessionId: string): Promise<SessionDoc | null> {
+    const col = getSessionsCollection();
+    if (col.findOne) {
+      return col.findOne({ sessionId });
+    }
+    const docs = await col.find({ sessionId }).toArray();
+    return docs[0] ?? null;
+  }
+
+  /**
+   * RFC 6819 rotation with 30s grace period.
+   * Mark old session with replacedBy & rotatedAt and expire after 30s.
+   * Allows concurrent in-flight requests to succeed without session destruction.
+   */
   async rotateSession(
     oldSessionId: string,
     newData: {
@@ -47,8 +61,21 @@ export class SessionStore {
     }
   ): Promise<SessionDoc> {
     const col = getSessionsCollection();
-    await col.deleteOne({ sessionId: oldSessionId });
-    return this.createSession(newData);
+    const newSession = await this.createSession(newData);
+    const graceExpiresAt = new Date(Date.now() + 30_000);
+
+    await col.updateOne(
+      { sessionId: oldSessionId },
+      {
+        $set: {
+          replacedBy: newSession.sessionId,
+          rotatedAt: new Date(),
+          expiresAt: graceExpiresAt,
+        },
+      }
+    );
+
+    return newSession;
   }
 
   async deleteSession(sessionId: string): Promise<boolean> {

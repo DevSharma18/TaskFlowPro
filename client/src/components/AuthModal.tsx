@@ -3,6 +3,7 @@ import { useAuthStore } from '../store';
 import { api } from '../api/client';
 import toast from 'react-hot-toast';
 import { Shield, ArrowRight, Lock, Mail, User as UserIcon } from 'lucide-react';
+import { LegalModal, LegalTab } from './LegalModal';
 
 export const AuthModal: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -10,6 +11,7 @@ export const AuthModal: React.FC = () => {
   const [password, setPassword] = useState('Password123!');
   const [name, setName] = useState('Ada Admin');
   const [loading, setLoading] = useState(false);
+  const [legalModal, setLegalModal] = useState<LegalTab | null>(null);
   const { login } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,8 +35,8 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm p-4">
-      <div className="glass-panel w-full max-w-md p-7 border border-slate-200/90 dark:border-surface-border text-slate-900 dark:text-slate-100 rounded-sm shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="glass-panel w-full max-w-md p-7 border border-slate-200/90 dark:border-surface-border text-slate-900 dark:text-slate-100 rounded-sm shadow-2xl animate-modal-enter">
         <div className="flex items-center space-x-3 mb-6">
           <div className="w-9 h-9 bg-brand-primary/15 dark:bg-brand-primary/20 border border-brand-primary/40 flex items-center justify-center text-brand-primary rounded-sm">
             <Shield className="w-5 h-5" />
@@ -129,12 +131,38 @@ export const AuthModal: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-5 pt-4 border-t border-slate-200/80 dark:border-surface-border/50 text-center">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+        <div className="mt-5 pt-4 border-t border-slate-200/80 dark:border-surface-border/50 text-center space-y-2">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            By continuing, you agree to our{' '}
+            <button
+              type="button"
+              onClick={() => setLegalModal('terms')}
+              className="text-brand-primary hover:underline font-medium"
+            >
+              Terms of Service
+            </button>{' '}
+            and{' '}
+            <button
+              type="button"
+              onClick={() => setLegalModal('privacy')}
+              className="text-brand-primary hover:underline font-medium"
+            >
+              Privacy Policy
+            </button>
+            .
+          </p>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500">
             Demo credentials pre-filled for local testing.
           </p>
         </div>
       </div>
+
+      {legalModal && (
+        <LegalModal
+          initialTab={legalModal}
+          onClose={() => setLegalModal(null)}
+        />
+      )}
     </div>
   );
 };

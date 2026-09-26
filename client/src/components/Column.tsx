@@ -14,10 +14,10 @@ interface ColumnProps {
 }
 
 const statusColors: Record<TaskStatus, { border: string; dot: string; count: string }> = {
-  backlog: { border: 'border-slate-300 dark:border-slate-700/50', dot: 'bg-slate-400', count: 'text-slate-600 dark:text-slate-400' },
-  in_progress: { border: 'border-indigo-400/50 dark:border-brand-primary/40', dot: 'bg-brand-primary', count: 'text-brand-primary' },
-  review: { border: 'border-cyan-400/50 dark:border-brand-accent/40', dot: 'bg-brand-accent', count: 'text-brand-accent' },
-  done: { border: 'border-emerald-400/50 dark:border-emerald-500/40', dot: 'bg-emerald-500', count: 'text-emerald-600 dark:text-emerald-400' },
+  backlog: { border: 'border-slate-300 dark:border-slate-700/50', dot: 'bg-slate-400 dark:bg-slate-500', count: 'text-slate-600 dark:text-slate-400' },
+  in_progress: { border: 'border-blue-500/40 dark:border-blue-500/40', dot: 'bg-blue-600 dark:bg-blue-500', count: 'text-blue-600 dark:text-blue-400' },
+  review: { border: 'border-sky-500/40 dark:border-sky-500/40', dot: 'bg-sky-600 dark:bg-sky-500', count: 'text-sky-600 dark:text-sky-400' },
+  done: { border: 'border-emerald-500/40 dark:border-emerald-500/40', dot: 'bg-emerald-600 dark:bg-emerald-500', count: 'text-emerald-600 dark:text-emerald-400' },
 };
 
 export const Column: React.FC<ColumnProps> = ({ id, title, tasks, onTaskClick, onAddTask }) => {

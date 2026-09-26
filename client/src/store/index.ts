@@ -12,21 +12,42 @@ interface AuthState {
   logout: () => void;
 }
 
+const getInitialUser = (): User | null => {
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem('taskflow_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
+const initialUser = getInitialUser();
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
+  user: initialUser,
   token: null,
-  isAuthenticated: false,
+  isAuthenticated: !!initialUser,
   isLoading: true,
   setUser: (user) => {
-    if (!user) setAccessToken(null);
+    if (!user) {
+      setAccessToken(null);
+      if (typeof window !== 'undefined') localStorage.removeItem('taskflow_user');
+    } else {
+      if (typeof window !== 'undefined') localStorage.setItem('taskflow_user', JSON.stringify(user));
+    }
     set({ user, token: user ? useAuthStore.getState().token : null, isAuthenticated: !!user, isLoading: false });
   },
   login: (user, token) => {
     setAccessToken(token);
+    if (typeof window !== 'undefined') localStorage.setItem('taskflow_user', JSON.stringify(user));
     set({ user, token, isAuthenticated: true, isLoading: false });
   },
   logout: () => {
     setAccessToken(null);
+    if (typeof window !== 'undefined') localStorage.removeItem('taskflow_user');
     set({ user: null, token: null, isAuthenticated: false, isLoading: false });
   },
 }));

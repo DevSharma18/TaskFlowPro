@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -42,6 +42,7 @@ export const Board: React.FC = () => {
   } = useBoardStore();
 
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const dragOriginStatusRef = useRef<TaskStatus | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalStatus, setModalStatus] = useState<TaskStatus>('backlog');
 
@@ -87,7 +88,10 @@ export const Board: React.FC = () => {
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const task = tasks.find((t) => t.id === active.id);
-    if (task) setActiveTask(task);
+    if (task) {
+      dragOriginStatusRef.current = task.status;
+      setActiveTask(task);
+    }
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -128,16 +132,31 @@ export const Board: React.FC = () => {
     }
   };
 
+  const handleDragCancel = () => {
+    setActiveTask(null);
+    dragOriginStatusRef.current = null;
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
-    if (!over) return;
+    const initialStatus = dragOriginStatusRef.current;
+    dragOriginStatusRef.current = null;
+
+    if (!over) {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      return;
+    }
 
     const activeId = active.id as string;
     const activeCurrent = tasks.find((t) => t.id === activeId);
-    if (!activeCurrent) return;
+    if (!activeCurrent) {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      return;
+    }
 
-    let destinationStatus: TaskStatus = activeCurrent.status;
+    let destinationStatus: TaskStatus = initialStatus || activeCurrent.status;
 
     if (over.data.current?.type === 'Column') {
       destinationStatus = over.data.current.status as TaskStatus;
@@ -153,38 +172,42 @@ export const Board: React.FC = () => {
       return;
     }
 
-    if (destinationStatus === activeCurrent.status) {
-      if (over.data.current?.type === 'Task' && over.id !== activeId) {
-        const columnTasks = tasks
-          .filter((t) => t.status === destinationStatus)
-          .sort((a, b) => a.position - b.position);
-
-        const oldIndex = columnTasks.findIndex((t) => t.id === activeId);
-        const newIndex = columnTasks.findIndex((t) => t.id === over.id);
-
-        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-          const reordered = arrayMove(columnTasks, oldIndex, newIndex);
-          const currentIndex = reordered.findIndex((t) => t.id === activeId);
-          const beforeTask = currentIndex > 0 ? reordered[currentIndex - 1] : null;
-          const afterTask = currentIndex < reordered.length - 1 ? reordered[currentIndex + 1] : null;
-
-          api
-            .patch(`/tasks/${activeId}/position`, {
-              before_id: beforeTask ? beforeTask.id : null,
-              after_id: afterTask ? afterTask.id : null,
-            })
-            .then(() => {
-              queryClient.invalidateQueries({ queryKey: ['tasks'] });
-            })
-            .catch(() => {
-              queryClient.invalidateQueries({ queryKey: ['tasks'] });
-            });
-        }
-      }
+    // Status changed to a different column
+    if (initialStatus && destinationStatus !== initialStatus) {
+      moveTaskMutation.mutate({ id: activeId, status: destinationStatus });
       return;
     }
 
-    moveTaskMutation.mutate({ id: activeId, status: destinationStatus });
+    // Same column - check if position reordering within column is needed
+    if (over.data.current?.type === 'Task' && over.id !== activeId) {
+      const columnTasks = tasks
+        .filter((t) => t.status === destinationStatus)
+        .sort((a, b) => a.position - b.position);
+
+      const oldIndex = columnTasks.findIndex((t) => t.id === activeId);
+      const newIndex = columnTasks.findIndex((t) => t.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        const reordered = arrayMove(columnTasks, oldIndex, newIndex);
+        const currentIndex = reordered.findIndex((t) => t.id === activeId);
+        const beforeTask = currentIndex > 0 ? reordered[currentIndex - 1] : null;
+        const afterTask = currentIndex < reordered.length - 1 ? reordered[currentIndex + 1] : null;
+
+        api
+          .patch(`/tasks/${activeId}/position`, {
+            before_id: beforeTask ? beforeTask.id : null,
+            after_id: afterTask ? afterTask.id : null,
+          })
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          })
+          .catch(() => {
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          });
+      }
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    }
   };
 
   const filteredTasks = tasks.filter((t) => {
@@ -256,6 +279,7 @@ export const Board: React.FC = () => {
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5 h-full">
             {COLUMNS.map((col) => (

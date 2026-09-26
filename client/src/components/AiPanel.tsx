@@ -96,7 +96,7 @@ export const AiPanel: React.FC<AiPanelProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-white/95 dark:bg-slate-950/95 border-l border-slate-200/90 dark:border-surface-border backdrop-blur-xl shadow-2xl flex flex-col text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-white/95 dark:bg-slate-950/95 border-l border-slate-200/90 dark:border-surface-border backdrop-blur-xl shadow-2xl flex flex-col text-slate-900 dark:text-slate-100 transition-colors animate-slide-in-right">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-200/80 dark:border-surface-border">
         <div className="flex items-center space-x-2.5">

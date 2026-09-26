@@ -8,7 +8,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#070a13',
+        background: '#0b0f19',
         surface: {
           50: 'rgba(255, 255, 255, 0.03)',
           100: 'rgba(255, 255, 255, 0.06)',
@@ -17,8 +17,8 @@ export default {
           border: 'rgba(255, 255, 255, 0.12)',
         },
         brand: {
-          primary: '#6366f1',
-          accent: '#06b6d4',
+          primary: '#2563eb',
+          accent: '#0284c7',
           danger: '#ef4444',
           success: '#10b981',
           warning: '#f59e0b',
@@ -26,13 +26,13 @@ export default {
       },
       borderRadius: {
         DEFAULT: '4px',
+        none: '0px',
         sm: '2px',
         md: '4px',
         lg: '4px',
         xl: '4px',
         '2xl': '4px',
         '3xl': '4px',
-        full: '9999px',
       },
       backdropBlur: {
         xs: '2px',

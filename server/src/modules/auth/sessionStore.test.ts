@@ -14,8 +14,9 @@ describe('SessionStore', () => {
         mockDocs.push(doc);
         return { insertedId: 'mock-id' };
       }),
-      find: jest.fn((query: { tokenPrefix?: string; expiresAt?: { $gt: Date } }) => {
+      find: jest.fn((query: { tokenPrefix?: string; expiresAt?: { $gt: Date }; sessionId?: string }) => {
         const filtered = mockDocs.filter((d) => {
+          if (query.sessionId && d.sessionId !== query.sessionId) return false;
           if (query.tokenPrefix && d.tokenPrefix !== query.tokenPrefix) return false;
           if (query.expiresAt?.$gt && d.expiresAt <= query.expiresAt.$gt) return false;
           return true;
@@ -23,6 +24,17 @@ describe('SessionStore', () => {
         return {
           toArray: async () => filtered,
         };
+      }),
+      findOne: jest.fn(async (query: { sessionId?: string }) => {
+        return mockDocs.find((d) => !query.sessionId || d.sessionId === query.sessionId) ?? null;
+      }),
+      updateOne: jest.fn(async (filter: { sessionId: string }, update: { $set: Partial<mongoModule.SessionDoc> }) => {
+        const doc = mockDocs.find((d) => d.sessionId === filter.sessionId);
+        if (doc && update.$set) {
+          Object.assign(doc, update.$set);
+          return { matchedCount: 1, modifiedCount: 1 };
+        }
+        return { matchedCount: 0, modifiedCount: 0 };
       }),
       deleteOne: jest.fn(async (query: { sessionId: string }) => {
         const initial = mockDocs.length;
@@ -79,7 +91,7 @@ describe('SessionStore', () => {
     expect(results[0].userId).toBe('user-1');
   });
 
-  it('rotates session by removing old session and creating new one', async () => {
+  it('rotates session with grace period for old session', async () => {
     const original = await store.createSession({
       userId: 'user-rot',
       tokenHash: 'old-hash',
@@ -96,8 +108,11 @@ describe('SessionStore', () => {
 
     expect(rotated.sessionId).not.toBe(original.sessionId);
     expect(rotated.tokenPrefix).toBe('new-prefix');
-    expect(mockDocs.length).toBe(1);
-    expect(mockDocs[0].tokenPrefix).toBe('new-prefix');
+    // Both sessions exist during the 30s grace window
+    expect(mockDocs.length).toBe(2);
+    const oldDoc = mockDocs.find((d) => d.sessionId === original.sessionId);
+    expect(oldDoc?.replacedBy).toBe(rotated.sessionId);
+    expect(oldDoc?.rotatedAt).toBeDefined();
   });
 
   it('deletes session on logout', async () => {

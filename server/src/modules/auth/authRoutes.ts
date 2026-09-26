@@ -38,7 +38,7 @@ const loginSchema = Joi.object({
 
 const REFRESH_COOKIE = 'tf_refresh';
 
-async function createRefreshToken(userId: string, req: Request, res: Response): Promise<void> {
+async function createRefreshToken(userId: string, req: Request, res: Response): Promise<string> {
   const raw = crypto.randomBytes(48).toString('hex');
   const tokenHash = await bcrypt.hash(raw, 10);
   const tokenPrefix = raw.slice(0, 16);
@@ -56,10 +56,12 @@ async function createRefreshToken(userId: string, req: Request, res: Response): 
   res.cookie(REFRESH_COOKIE, raw, {
     httpOnly: true,
     secure: env.isProd,
-    sameSite: 'strict',
+    sameSite: 'lax',
     path: '/api/auth',
     expires: expiresAt,
   });
+
+  return raw;
 }
 
 async function sendTokens(userId: string, email: string, role: string, teamId: string | null, name: string, req: Request, res: Response) {
@@ -132,12 +134,55 @@ authRouter.post(
     const user = await db('users').where({ id: match.userId }).first();
     if (!user) throw new AuthError('User no longer exists');
 
-    // Rotate: remove old session atomically, issue new
-    const deleted = await sessionStore.deleteSession(match.sessionId);
-    if (!deleted) throw new AuthError('Invalid refresh token');
+    const userDto = { id: user.id, email: user.email, name: user.name, role: user.role, teamId: user.team_id };
+
+    // Check if session was already rotated
+    if (match.replacedBy) {
+      const rotatedAt = match.rotatedAt ? new Date(match.rotatedAt).getTime() : 0;
+      const isWithinGracePeriod = Date.now() - rotatedAt <= 30_000;
+      if (isWithinGracePeriod) {
+        // Concurrent request within 30s grace window (StrictMode double-mount or parallel tab)
+        const accessToken = signAccessToken({ userId: user.id, email: user.email, role: user.role, teamId: user.team_id });
+        res.json({ success: true, data: { accessToken, user: userDto } });
+        return;
+      }
+
+      // Token reuse outside grace period — RFC 6819 replay attack detection
+      await sessionStore.deleteSessionsForUser(user.id);
+      res.clearCookie(REFRESH_COOKIE, {
+        path: '/api/auth',
+        httpOnly: true,
+        secure: env.isProd,
+        sameSite: 'lax',
+      });
+      throw new AuthError('Token reuse detected. All sessions revoked.');
+    }
+
+    // Active session: rotate with 30s grace window
+    const rawNew = crypto.randomBytes(48).toString('hex');
+    const tokenHash = await bcrypt.hash(rawNew, 10);
+    const tokenPrefix = rawNew.slice(0, 16);
+    const expiresAt = new Date(Date.now() + env.jwtRefreshTtlDays * 86400_000);
+
+    await sessionStore.rotateSession(match.sessionId, {
+      userId: user.id,
+      tokenHash,
+      tokenPrefix,
+      expiresAt,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+
+    res.cookie(REFRESH_COOKIE, rawNew, {
+      httpOnly: true,
+      secure: env.isProd,
+      sameSite: 'lax',
+      path: '/api/auth',
+      expires: expiresAt,
+    });
+
     const accessToken = signAccessToken({ userId: user.id, email: user.email, role: user.role, teamId: user.team_id });
-    await createRefreshToken(user.id, req, res);
-    res.json({ success: true, data: { accessToken } });
+    res.json({ success: true, data: { accessToken, user: userDto } });
   })
 );
 
@@ -159,7 +204,7 @@ authRouter.post(
       path: '/api/auth',
       httpOnly: true,
       secure: env.isProd,
-      sameSite: 'strict',
+      sameSite: 'lax',
     });
     res.json({ success: true });
   })
